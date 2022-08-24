@@ -2,5 +2,5 @@
 
 extern crate core;
 
-mod greek_char;
-mod greek_word;
+pub mod chars;
+pub mod words;
