@@ -1,4 +1,6 @@
 #![allow(dead_code)]
 
-mod greek_char;
-mod greek_word;
+extern crate core;
+
+pub mod chars;
+pub mod words;
