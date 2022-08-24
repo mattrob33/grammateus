@@ -141,8 +141,8 @@ impl GreekChar {
         is_lowercase_greek(self)
     }
 
-    pub fn to_upper(&self) -> Result<GreekChar, InvalidCharError> {
-        let upper: GreekChar = match self {
+    pub fn to_upper(&self) -> GreekChar {
+        match self {
             &LOWER_ALPHA => UPPER_ALPHA,
             &LOWER_BETA => UPPER_BETA,
             &LOWER_GAMMA => UPPER_GAMMA,
@@ -217,13 +217,12 @@ impl GreekChar {
             &UPPER_IOTA_WITH_DIALYTIKA => UPPER_IOTA_WITH_DIALYTIKA,
             &UPPER_UPSILON_WITH_DIALYTIKA => UPPER_UPSILON_WITH_DIALYTIKA,
 
-            _ => return Err(InvalidCharError)
-        };
-        Ok(upper)
+            _ => panic!("Unable to convert char to upper")
+        }
     }
 
-    pub fn to_lower(&self) -> Result<GreekChar, InvalidCharError> {
-        let lower: GreekChar = match self {
+    pub fn to_lower(&self) -> GreekChar {
+        match self {
             &UPPER_ALPHA => LOWER_ALPHA,
             &UPPER_BETA => LOWER_BETA,
             &UPPER_GAMMA => LOWER_GAMMA,
@@ -298,9 +297,13 @@ impl GreekChar {
             &LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS => LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS,
             &LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS => LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS,
 
-            _ => return Err(InvalidCharError)
-        };
-        Ok(lower)
+            _ => panic!("Unable to convert char to lower")
+        }
+    }
+
+    /// Returns this `GreekChar` with any diacritics stripped
+    pub fn stripped(&self) -> GreekChar {
+        strip_diacritics(&self).clone()
     }
 }
 
@@ -314,7 +317,10 @@ pub fn is_lowercase_greek(char: &GreekChar) -> bool {
                 return (char.bytes()[1] >= 0x80) && (char.bytes()[1] <= 0x89)
             }
             false
-        }
+        },
+        
+        3 => panic!("Not yet implented"), // TODO
+        
         _ => false
     }
 }
@@ -329,8 +335,45 @@ pub fn is_uppercase_greek(char: &GreekChar) -> bool {
             }
             false
         }
+
+        3 => panic!("Not yet implented"), // TODO
+
         _ => false
     };
+}
+
+pub fn strip_diacritics(char: &GreekChar) -> &GreekChar {
+
+    if is_consonant(char) { return char }
+
+    match char {
+        &UPPER_ALPHA|&UPPER_ALPHA_WITH_TONOS => &UPPER_ALPHA,
+        &UPPER_EPSILON|&UPPER_EPSILON_WITH_TONOS => &UPPER_EPSILON,
+        &UPPER_ETA|&UPPER_ETA_WITH_TONOS => &UPPER_ETA,
+        &UPPER_IOTA|&UPPER_IOTA_WITH_TONOS|&UPPER_IOTA_WITH_DIALYTIKA => &UPPER_IOTA,
+        &UPPER_OMICRON|&UPPER_OMICRON_WITH_TONOS => &UPPER_OMICRON,
+        &UPPER_UPSILON|&UPPER_UPSILON_WITH_TONOS|&UPPER_UPSILON_WITH_DIALYTIKA => &UPPER_UPSILON,
+        &UPPER_OMEGA|&UPPER_OMEGA_WITH_TONOS => &UPPER_OMEGA,
+
+        &LOWER_ALPHA|&LOWER_ALPHA_WITH_TONOS => &LOWER_ALPHA,
+        &LOWER_EPSILON|&LOWER_EPSILON_WITH_TONOS => &LOWER_EPSILON,
+        &LOWER_ETA|&LOWER_ETA_WITH_TONOS => &LOWER_ETA,
+        &LOWER_IOTA|&LOWER_IOTA_WITH_TONOS|&LOWER_IOTA_WITH_DIALYTIKA|&LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS => &LOWER_IOTA,
+        &LOWER_OMICRON|&LOWER_OMICRON_WITH_TONOS => &LOWER_OMICRON,
+        &LOWER_UPSILON|&LOWER_UPSILON_WITH_TONOS|&LOWER_UPSILON_WITH_DIALYTIKA|&LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS => &LOWER_UPSILON,
+        &LOWER_OMEGA|&LOWER_OMEGA_WITH_TONOS => &LOWER_OMEGA,
+
+        _ => panic!("Invalid char encountered")
+    }
+}
+
+fn is_consonant(char: &GreekChar) -> bool {
+    match char {
+        &UPPER_BETA|&UPPER_GAMMA|&UPPER_DELTA|&UPPER_ZETA|&UPPER_THETA|&UPPER_KAPPA|&UPPER_LAMBDA|&UPPER_MU|&UPPER_NU|&UPPER_XI|&UPPER_PI|&UPPER_RHO|&UPPER_SIGMA|&UPPER_TAU|&UPPER_PHI|&UPPER_CHI|&UPPER_PSI|
+        &LOWER_BETA|&LOWER_GAMMA|&LOWER_DELTA|&LOWER_ZETA|&LOWER_THETA|&LOWER_KAPPA|&LOWER_LAMBDA|&LOWER_MU|&LOWER_NU|&LOWER_XI|&LOWER_PI|&LOWER_RHO|&LOWER_SIGMA|&LOWER_SIGMA_FINAL|&LOWER_TAU|&LOWER_PHI|&LOWER_CHI|&LOWER_PSI
+        => true,
+        _ => false
+    }
 }
 
 pub const UPPER_ALPHA: GreekChar = GreekChar { bytes: [0xCE, 0x91, 0], len: 2 };
@@ -453,20 +496,6 @@ mod tests {
     fn uppercase_letters_are_not_lowercase() {
         for char in GREEK_UPPERS {
             assert!(!is_lowercase_greek(&char), "[{}, {}]", &char.bytes()[0], &char.bytes()[1]);
-        }
-    }
-
-    #[test]
-    fn uppercase_letters_can_be_lowered() {
-        for char in GREEK_UPPERS {
-            assert!(char.to_lower().is_ok(), "[0x{:02x}, 0x{:02x}]", &char.bytes()[0], &char.bytes()[1]);
-        }
-    }
-
-    #[test]
-    fn lowercase_letters_can_be_uppered() {
-        for char in GREEK_LOWERS {
-            assert!(char.to_upper().is_ok(), "[0x{:02x}, 0x{:02x}]", &char.bytes()[0], &char.bytes()[1]);
         }
     }
 }
