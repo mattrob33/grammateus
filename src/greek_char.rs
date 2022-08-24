@@ -4,20 +4,12 @@
 pub struct InvalidCharError;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GreekChar {
-    bytes: [u8; 3],
-    len: u8
+pub enum GreekChar {
+    TwoByte(u8, u8),
+    ThreeByte(u8, u8, u8),
 }
 
 impl GreekChar {
-
-    pub fn bytes(&self) -> &[u8] {
-        return if self.len == 3 {
-            &self.bytes
-        } else {
-            &self.bytes[0..2]
-        }
-    }
 
     pub fn try_new(bytes: &[u8]) -> Result<Self, InvalidCharError> {
         return match bytes.len() {
@@ -31,12 +23,7 @@ impl GreekChar {
                         } else if bytes[1] == 0xA2 || bytes[1] == 0x87 || bytes[1] == 0x8B || bytes[1] == 0x8D {
                             Err(InvalidCharError) // these are reserved chars
                         } else {
-                            let bytes: [u8; 3] = [
-                                bytes[0],
-                                bytes[1],
-                                0
-                            ];
-                            Ok(GreekChar {bytes, len: 2}) // valid Greek char
+                            Ok(GreekChar::TwoByte(bytes[0], bytes[1])) // valid Greek char
                         }
                     }
 
@@ -48,12 +35,7 @@ impl GreekChar {
                             Err(InvalidCharError) // above maximum range
                         }
                         else {
-                            let bytes: [u8; 3] = [
-                                bytes[0],
-                                bytes[1],
-                                0
-                            ];
-                            Ok(GreekChar {bytes, len: 2}) // valid Greek char
+                            Ok(GreekChar::TwoByte(bytes[0], bytes[1])) // valid Greek char
                         }
                     }
 
@@ -69,12 +51,7 @@ impl GreekChar {
                                 match bytes[2] {
                                     0x96|0x97|0x9E|0x9F => Err(InvalidCharError), // reserved chars
                                     _ => {
-                                        let bytes: [u8; 3] = [
-                                            bytes[0],
-                                            bytes[1],
-                                            bytes[2]
-                                        ];
-                                        Ok(GreekChar {bytes, len: 3}) // valid Greek char
+                                        Ok(GreekChar::ThreeByte(bytes[0], bytes[1], bytes[2])) // valid Greek char
                                     }
                                 }
                             },
@@ -83,12 +60,7 @@ impl GreekChar {
                                 match bytes[2] {
                                     0x86|0x87|0x8E|0x8F|0x98|0x9A|0x9C|0x9E|0xBE|0xBF => Err(InvalidCharError), // reserved chars
                                     _ => {
-                                        let bytes: [u8; 3] = [
-                                            bytes[0],
-                                            bytes[1],
-                                            bytes[2]
-                                        ];
-                                        Ok(GreekChar {bytes, len: 3}) // valid Greek char
+                                        Ok(GreekChar::ThreeByte(bytes[0], bytes[1], bytes[2])) // valid Greek char
                                     }
                                 }
                             },
@@ -97,12 +69,7 @@ impl GreekChar {
                                 match bytes[2] {
                                     0xB5 => Err(InvalidCharError), // reserved char
                                     _ => {
-                                        let bytes: [u8; 3] = [
-                                            bytes[0],
-                                            bytes[1],
-                                            bytes[2]
-                                        ];
-                                        Ok(GreekChar {bytes, len: 3}) // valid Greek char
+                                        Ok(GreekChar::ThreeByte(bytes[0], bytes[1], bytes[2])) // valid Greek char
                                     }
                                 }
                             },
@@ -111,12 +78,7 @@ impl GreekChar {
                                 match bytes[2] {
                                     0x94|0x95|0x9C|0xB0|0xB1|0xB5|0xBF => Err(InvalidCharError), // reserved chars
                                     _ => {
-                                        let bytes: [u8; 3] = [
-                                            bytes[0],
-                                            bytes[1],
-                                            bytes[2]
-                                        ];
-                                        Ok(GreekChar {bytes, len: 3}) // valid Greek char
+                                        Ok(GreekChar::ThreeByte(bytes[0], bytes[1], bytes[2])) // valid Greek char
                                     }
                                 }
                             },
@@ -308,37 +270,35 @@ impl GreekChar {
 }
 
 pub fn is_lowercase_greek(char: &GreekChar) -> bool {
-    return match char.bytes().len() {
-        2 => {
-            if char.bytes()[0] == 0xCE {
-                return (char.bytes()[1] >= 0xB1) && (char.bytes()[1] <= 0xBF)
+    return match char {
+        GreekChar::TwoByte(first_byte, second_byte) => {
+            match first_byte {
+                0xCE => {
+                    return (*second_byte >= 0xB1) && (*second_byte <= 0xBF)
+                },
+                0xCF => {
+                    return (*second_byte >= 0x80) && (*second_byte <= 0x89)
+                },
+                _ => false
             }
-            else if char.bytes()[0] == 0xCF {
-                return (char.bytes()[1] >= 0x80) && (char.bytes()[1] <= 0x89)
-            }
-            false
         },
-        
-        3 => panic!("Not yet implented"), // TODO
-        
-        _ => false
+
+        GreekChar::ThreeByte(_, _, _) => panic!("Not yet implented"), // TODO
     }
 }
 
 pub fn is_uppercase_greek(char: &GreekChar) -> bool {
-    return match char.bytes().len() {
-        2 => {
-            if char.bytes()[0] == 0xCE {
-                if (char.bytes()[1] >= 0x91) && (char.bytes()[1] <= 0xA9) {
-                    return char.bytes()[1] != 0xA2; // unicode \03A2 is reserved
+    return match char {
+        GreekChar::TwoByte(first_byte, second_byte) => {
+            if *first_byte == 0xCE {
+                if (*second_byte >= 0x91) && (*second_byte <= 0xA9) {
+                    return *second_byte != 0xA2; // unicode \03A2 is reserved
                 }
             }
             false
         }
 
-        3 => panic!("Not yet implented"), // TODO
-
-        _ => false
+        GreekChar::ThreeByte(_, _, _) => panic!("Not yet implented"), // TODO
     };
 }
 
@@ -347,46 +307,53 @@ pub fn strip_diacritics(char: &GreekChar) -> &GreekChar {
     if is_consonant(char) { return char }
 
     match char {
-        &UPPER_ALPHA|&UPPER_ALPHA_WITH_TONOS => &UPPER_ALPHA,
-        &UPPER_EPSILON|&UPPER_EPSILON_WITH_TONOS => &UPPER_EPSILON,
-        &UPPER_ETA|&UPPER_ETA_WITH_TONOS => &UPPER_ETA,
-        &UPPER_IOTA|&UPPER_IOTA_WITH_TONOS|&UPPER_IOTA_WITH_DIALYTIKA => &UPPER_IOTA,
-        &UPPER_OMICRON|&UPPER_OMICRON_WITH_TONOS => &UPPER_OMICRON,
-        &UPPER_UPSILON|&UPPER_UPSILON_WITH_TONOS|&UPPER_UPSILON_WITH_DIALYTIKA => &UPPER_UPSILON,
-        &UPPER_OMEGA|&UPPER_OMEGA_WITH_TONOS => &UPPER_OMEGA,
+        GreekChar::TwoByte(_, _) => {
+            match char {
+                &UPPER_ALPHA|&UPPER_ALPHA_WITH_TONOS => &UPPER_ALPHA,
+                &UPPER_EPSILON|&UPPER_EPSILON_WITH_TONOS => &UPPER_EPSILON,
+                &UPPER_ETA|&UPPER_ETA_WITH_TONOS => &UPPER_ETA,
+                &UPPER_IOTA|&UPPER_IOTA_WITH_TONOS|&UPPER_IOTA_WITH_DIALYTIKA => &UPPER_IOTA,
+                &UPPER_OMICRON|&UPPER_OMICRON_WITH_TONOS => &UPPER_OMICRON,
+                &UPPER_UPSILON|&UPPER_UPSILON_WITH_TONOS|&UPPER_UPSILON_WITH_DIALYTIKA => &UPPER_UPSILON,
+                &UPPER_OMEGA|&UPPER_OMEGA_WITH_TONOS => &UPPER_OMEGA,
 
-        &LOWER_ALPHA|&LOWER_ALPHA_WITH_TONOS => &LOWER_ALPHA,
-        &LOWER_EPSILON|&LOWER_EPSILON_WITH_TONOS => &LOWER_EPSILON,
-        &LOWER_ETA|&LOWER_ETA_WITH_TONOS => &LOWER_ETA,
-        &LOWER_IOTA|&LOWER_IOTA_WITH_TONOS|&LOWER_IOTA_WITH_DIALYTIKA|&LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS => &LOWER_IOTA,
-        &LOWER_OMICRON|&LOWER_OMICRON_WITH_TONOS => &LOWER_OMICRON,
-        &LOWER_UPSILON|&LOWER_UPSILON_WITH_TONOS|&LOWER_UPSILON_WITH_DIALYTIKA|&LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS => &LOWER_UPSILON,
-        &LOWER_OMEGA|&LOWER_OMEGA_WITH_TONOS => &LOWER_OMEGA,
-
-        _ => {
-            match char.bytes[1] {
+                &LOWER_ALPHA|&LOWER_ALPHA_WITH_TONOS => &LOWER_ALPHA,
+                &LOWER_EPSILON|&LOWER_EPSILON_WITH_TONOS => &LOWER_EPSILON,
+                &LOWER_ETA|&LOWER_ETA_WITH_TONOS => &LOWER_ETA,
+                &LOWER_IOTA|&LOWER_IOTA_WITH_TONOS|&LOWER_IOTA_WITH_DIALYTIKA|&LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS => &LOWER_IOTA,
+                &LOWER_OMICRON|&LOWER_OMICRON_WITH_TONOS => &LOWER_OMICRON,
+                &LOWER_UPSILON|&LOWER_UPSILON_WITH_TONOS|&LOWER_UPSILON_WITH_DIALYTIKA|&LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS => &LOWER_UPSILON,
+                &LOWER_OMEGA|&LOWER_OMEGA_WITH_TONOS => &LOWER_OMEGA,
+                _ => panic!("Not yet supported - please file an issue")
+            }
+        },
+        GreekChar::ThreeByte(_, second_byte, third_byte) => {
+            match second_byte {
                 0xBC => {
-                    match char.bytes[2] {
-                        0x80..=0x87 => LOWER_ALPHA,
-                        0x88..=0x8F => UPPER_ALPHA,
-                        0x90..=0x95 => LOWER_EPSILON,
-                        0x98..=0x9D => UPPER_EPSILON,
-                        0xA0..=0xA7 => LOWER_ETA,
-                        0xA8..=0xAF => UPPER_ETA,
-                        0xB0..=0xB7 => LOWER_IOTA,
-                        0xB8..=0xBF => UPPER_IOTA
+                    match third_byte {
+                        0x80..=0x87 => &LOWER_ALPHA,
+                        0x88..=0x8F => &UPPER_ALPHA,
+                        0x90..=0x95 => &LOWER_EPSILON,
+                        0x98..=0x9D => &UPPER_EPSILON,
+                        0xA0..=0xA7 => &LOWER_ETA,
+                        0xA8..=0xAF => &UPPER_ETA,
+                        0xB0..=0xB7 => &LOWER_IOTA,
+                        0xB8..=0xBF => &UPPER_IOTA,
+                        _ => panic!("Not yet supported - please file an issue")
                     }
                 },
                 0xBD => {
-                    match char.bytes[2] {
-                        0x80..=0x85 => LOWER_OMICRON,
-                        0x88..=0x8D => UPPER_OMICRON,
-                        0x90..=0x97 => LOWER_UPSILON,
-                        0x99|0x9B|0x9D|0x9F => UPPER_UPSILON,
-                        0xA0..=0xA7 => LOWER_OMEGA,
-                        0xA8..=0xAF => UPPER_OMEGA
+                    match third_byte {
+                        0x80..=0x85 => &LOWER_OMICRON,
+                        0x88..=0x8D => &UPPER_OMICRON,
+                        0x90..=0x97 => &LOWER_UPSILON,
+                        0x99|0x9B|0x9D|0x9F => &UPPER_UPSILON,
+                        0xA0..=0xA7 => &LOWER_OMEGA,
+                        0xA8..=0xAF => &UPPER_OMEGA,
+                        _ => panic!("Not yet supported - please file an issue")
                     }
                 },
+                _ => panic!("Invalid char")
             }
         }
     }
@@ -401,81 +368,81 @@ fn is_consonant(char: &GreekChar) -> bool {
     }
 }
 
-pub const UPPER_ALPHA: GreekChar = GreekChar { bytes: [0xCE, 0x91, 0], len: 2 };
-pub const UPPER_BETA: GreekChar = GreekChar { bytes: [0xCE, 0x92, 0], len: 2 };
-pub const UPPER_GAMMA: GreekChar = GreekChar { bytes: [0xCE, 0x93, 0], len: 2 };
-pub const UPPER_DELTA: GreekChar = GreekChar { bytes: [0xCE, 0x94, 0], len: 2 };
-pub const UPPER_EPSILON: GreekChar = GreekChar { bytes: [0xCE, 0x95, 0], len: 2 };
-pub const UPPER_ZETA: GreekChar = GreekChar { bytes: [0xCE, 0x96, 0], len: 2 };
-pub const UPPER_ETA: GreekChar = GreekChar { bytes: [0xCE, 0x97, 0], len: 2 };
-pub const UPPER_THETA: GreekChar = GreekChar { bytes: [0xCE, 0x98, 0], len: 2 };
-pub const UPPER_IOTA: GreekChar = GreekChar { bytes: [0xCE, 0x99, 0], len: 2 };
-pub const UPPER_KAPPA: GreekChar = GreekChar { bytes: [0xCE, 0x9A, 0], len: 2 };
-pub const UPPER_LAMBDA: GreekChar = GreekChar { bytes: [0xCE, 0x9B, 0], len: 2 };
-pub const UPPER_MU: GreekChar = GreekChar { bytes: [0xCE, 0x9C, 0], len: 2 };
-pub const UPPER_NU: GreekChar = GreekChar { bytes: [0xCE, 0x9D, 0], len: 2 };
-pub const UPPER_XI: GreekChar = GreekChar { bytes: [0xCE, 0x9E, 0], len: 2 };
-pub const UPPER_OMICRON: GreekChar = GreekChar { bytes: [0xCE, 0x9F, 0], len: 2 };
-pub const UPPER_PI: GreekChar = GreekChar { bytes: [0xCE, 0xA0, 0], len: 2 };
-pub const UPPER_RHO: GreekChar = GreekChar { bytes: [0xCE, 0xA1, 0], len: 2 };
-pub const UPPER_SIGMA: GreekChar = GreekChar { bytes: [0xCE, 0xA3, 0], len: 2 };
-pub const UPPER_TAU: GreekChar = GreekChar { bytes: [0xCE, 0xA4, 0], len: 2 };
-pub const UPPER_UPSILON: GreekChar = GreekChar { bytes: [0xCE, 0xA5, 0], len: 2 };
-pub const UPPER_PHI: GreekChar = GreekChar { bytes: [0xCE, 0xA6, 0], len: 2 };
-pub const UPPER_CHI: GreekChar = GreekChar { bytes: [0xCE, 0xA7, 0], len: 2 };
-pub const UPPER_PSI: GreekChar = GreekChar { bytes: [0xCE, 0xA8, 0], len: 2 };
-pub const UPPER_OMEGA: GreekChar = GreekChar { bytes: [0xCE, 0xA9, 0], len: 2 };
+pub const UPPER_ALPHA: GreekChar = GreekChar::TwoByte(0xCE, 0x91);
+pub const UPPER_BETA: GreekChar = GreekChar::TwoByte(0xCE, 0x92);
+pub const UPPER_GAMMA: GreekChar = GreekChar::TwoByte(0xCE, 0x93);
+pub const UPPER_DELTA: GreekChar = GreekChar::TwoByte(0xCE, 0x94);
+pub const UPPER_EPSILON: GreekChar = GreekChar::TwoByte(0xCE, 0x95);
+pub const UPPER_ZETA: GreekChar = GreekChar::TwoByte(0xCE, 0x96);
+pub const UPPER_ETA: GreekChar = GreekChar::TwoByte(0xCE, 0x97);
+pub const UPPER_THETA: GreekChar = GreekChar::TwoByte(0xCE, 0x98);
+pub const UPPER_IOTA: GreekChar = GreekChar::TwoByte(0xCE, 0x99);
+pub const UPPER_KAPPA: GreekChar = GreekChar::TwoByte(0xCE, 0x9A);
+pub const UPPER_LAMBDA: GreekChar = GreekChar::TwoByte(0xCE, 0x9B);
+pub const UPPER_MU: GreekChar = GreekChar::TwoByte(0xCE, 0x9C);
+pub const UPPER_NU: GreekChar = GreekChar::TwoByte(0xCE, 0x9D);
+pub const UPPER_XI: GreekChar = GreekChar::TwoByte(0xCE, 0x9E);
+pub const UPPER_OMICRON: GreekChar = GreekChar::TwoByte(0xCE, 0x9F);
+pub const UPPER_PI: GreekChar = GreekChar::TwoByte(0xCE, 0xA0);
+pub const UPPER_RHO: GreekChar = GreekChar::TwoByte(0xCE, 0xA1);
+pub const UPPER_SIGMA: GreekChar = GreekChar::TwoByte(0xCE, 0xA3);
+pub const UPPER_TAU: GreekChar = GreekChar::TwoByte(0xCE, 0xA4);
+pub const UPPER_UPSILON: GreekChar = GreekChar::TwoByte(0xCE, 0xA5);
+pub const UPPER_PHI: GreekChar = GreekChar::TwoByte(0xCE, 0xA6);
+pub const UPPER_CHI: GreekChar = GreekChar::TwoByte(0xCE, 0xA7);
+pub const UPPER_PSI: GreekChar = GreekChar::TwoByte(0xCE, 0xA8);
+pub const UPPER_OMEGA: GreekChar = GreekChar::TwoByte(0xCE, 0xA9);
 
-pub const UPPER_ALPHA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x86, 0], len: 2 };
-pub const UPPER_EPSILON_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x88, 0], len: 2 };
-pub const UPPER_ETA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x89, 0], len: 2 };
-pub const UPPER_IOTA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x8A, 0], len: 2 };
-pub const UPPER_OMICRON_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x8C, 0], len: 2 };
-pub const UPPER_UPSILON_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x8E, 0], len: 2 };
-pub const UPPER_OMEGA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x8F, 0], len: 2 };
+pub const UPPER_ALPHA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x86);
+pub const UPPER_EPSILON_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x88);
+pub const UPPER_ETA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x89);
+pub const UPPER_IOTA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x8A);
+pub const UPPER_OMICRON_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x8C);
+pub const UPPER_UPSILON_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x8E);
+pub const UPPER_OMEGA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x8F);
 
-pub const UPPER_IOTA_WITH_DIALYTIKA: GreekChar = GreekChar { bytes: [0xCE, 0xAA, 0], len: 2 };
-pub const UPPER_UPSILON_WITH_DIALYTIKA: GreekChar = GreekChar { bytes: [0xCE, 0xAB, 0], len: 2 };
+pub const UPPER_IOTA_WITH_DIALYTIKA: GreekChar = GreekChar::TwoByte(0xCE, 0xAA);
+pub const UPPER_UPSILON_WITH_DIALYTIKA: GreekChar = GreekChar::TwoByte(0xCE, 0xAB);
 
-pub const LOWER_ALPHA: GreekChar = GreekChar { bytes: [0xCE, 0xB1, 0], len: 2 };
-pub const LOWER_BETA: GreekChar = GreekChar { bytes: [0xCE, 0xB2, 0], len: 2 };
-pub const LOWER_GAMMA: GreekChar = GreekChar { bytes: [0xCE, 0xB3, 0], len: 2 };
-pub const LOWER_DELTA: GreekChar = GreekChar { bytes: [0xCE, 0xB4, 0], len: 2 };
-pub const LOWER_EPSILON: GreekChar = GreekChar { bytes: [0xCE, 0xB5, 0], len: 2 };
-pub const LOWER_ZETA: GreekChar = GreekChar { bytes: [0xCE, 0xB6, 0], len: 2 };
-pub const LOWER_ETA: GreekChar = GreekChar { bytes: [0xCE, 0xB7, 0], len: 2 };
-pub const LOWER_THETA: GreekChar = GreekChar { bytes: [0xCE, 0xB8, 0], len: 2 };
-pub const LOWER_IOTA: GreekChar = GreekChar { bytes: [0xCE, 0xB9, 0], len: 2 };
-pub const LOWER_KAPPA: GreekChar = GreekChar { bytes: [0xCE, 0xBA, 0], len: 2 };
-pub const LOWER_LAMBDA: GreekChar = GreekChar { bytes: [0xCE, 0xBB, 0], len: 2 };
-pub const LOWER_MU: GreekChar = GreekChar { bytes: [0xCE, 0xBC, 0], len: 2 };
-pub const LOWER_NU: GreekChar = GreekChar { bytes: [0xCE, 0xBD, 0], len: 2 };
-pub const LOWER_XI: GreekChar = GreekChar { bytes: [0xCE, 0xBE, 0], len: 2 };
-pub const LOWER_OMICRON: GreekChar = GreekChar { bytes: [0xCE, 0xBF, 0], len: 2 };
-pub const LOWER_PI: GreekChar = GreekChar { bytes: [0xCF, 0x80, 0], len: 2 };
-pub const LOWER_RHO: GreekChar = GreekChar { bytes: [0xCF, 0x81, 0], len: 2 };
-pub const LOWER_SIGMA_FINAL: GreekChar = GreekChar { bytes: [0xCF, 0x82, 0], len: 2 };
-pub const LOWER_SIGMA: GreekChar = GreekChar { bytes: [0xCF, 0x83, 0], len: 2 };
-pub const LOWER_TAU: GreekChar = GreekChar { bytes: [0xCF, 0x84, 0], len: 2 };
-pub const LOWER_UPSILON: GreekChar = GreekChar { bytes: [0xCF, 0x85, 0], len: 2 };
-pub const LOWER_PHI: GreekChar = GreekChar { bytes: [0xCF, 0x86, 0], len: 2 };
-pub const LOWER_CHI: GreekChar = GreekChar { bytes: [0xCF, 0x87, 0], len: 2 };
-pub const LOWER_PSI: GreekChar = GreekChar { bytes: [0xCF, 0x88, 0], len: 2 };
-pub const LOWER_OMEGA: GreekChar = GreekChar { bytes: [0xCF, 0x89, 0], len: 2 };
+pub const LOWER_ALPHA: GreekChar = GreekChar::TwoByte(0xCE, 0xB1);
+pub const LOWER_BETA: GreekChar = GreekChar::TwoByte(0xCE, 0xB2);
+pub const LOWER_GAMMA: GreekChar = GreekChar::TwoByte(0xCE, 0xB3);
+pub const LOWER_DELTA: GreekChar = GreekChar::TwoByte(0xCE, 0xB4);
+pub const LOWER_EPSILON: GreekChar = GreekChar::TwoByte(0xCE, 0xB5);
+pub const LOWER_ZETA: GreekChar = GreekChar::TwoByte(0xCE, 0xB6);
+pub const LOWER_ETA: GreekChar = GreekChar::TwoByte(0xCE, 0xB7);
+pub const LOWER_THETA: GreekChar = GreekChar::TwoByte(0xCE, 0xB8);
+pub const LOWER_IOTA: GreekChar = GreekChar::TwoByte(0xCE, 0xB9);
+pub const LOWER_KAPPA: GreekChar = GreekChar::TwoByte(0xCE, 0xBA);
+pub const LOWER_LAMBDA: GreekChar = GreekChar::TwoByte(0xCE, 0xBB);
+pub const LOWER_MU: GreekChar = GreekChar::TwoByte(0xCE, 0xBC);
+pub const LOWER_NU: GreekChar = GreekChar::TwoByte(0xCE, 0xBD);
+pub const LOWER_XI: GreekChar = GreekChar::TwoByte(0xCE, 0xBE);
+pub const LOWER_OMICRON: GreekChar = GreekChar::TwoByte(0xCE, 0xBF);
+pub const LOWER_PI: GreekChar = GreekChar::TwoByte(0xCF, 0x80);
+pub const LOWER_RHO: GreekChar = GreekChar::TwoByte(0xCF, 0x81);
+pub const LOWER_SIGMA_FINAL: GreekChar = GreekChar::TwoByte(0xCF, 0x82);
+pub const LOWER_SIGMA: GreekChar = GreekChar::TwoByte(0xCF, 0x83);
+pub const LOWER_TAU: GreekChar = GreekChar::TwoByte(0xCF, 0x84);
+pub const LOWER_UPSILON: GreekChar = GreekChar::TwoByte(0xCF, 0x85);
+pub const LOWER_PHI: GreekChar = GreekChar::TwoByte(0xCF, 0x86);
+pub const LOWER_CHI: GreekChar = GreekChar::TwoByte(0xCF, 0x87);
+pub const LOWER_PSI: GreekChar = GreekChar::TwoByte(0xCF, 0x88);
+pub const LOWER_OMEGA: GreekChar = GreekChar::TwoByte(0xCF, 0x89);
 
-pub const LOWER_ALPHA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0xAC, 0], len: 2 };
-pub const LOWER_EPSILON_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0xAD, 0], len: 2 };
-pub const LOWER_ETA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0xAE, 0], len: 2 };
-pub const LOWER_IOTA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0xAF, 0], len: 2 };
-pub const LOWER_OMICRON_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCF, 0x8C, 0], len: 2 };
-pub const LOWER_UPSILON_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCF, 0x8D, 0], len: 2 };
-pub const LOWER_OMEGA_WITH_TONOS: GreekChar = GreekChar { bytes: [0xCF, 0x8E, 0], len: 2 };
+pub const LOWER_ALPHA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0xAC);
+pub const LOWER_EPSILON_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0xAD);
+pub const LOWER_ETA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0xAE);
+pub const LOWER_IOTA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0xAF);
+pub const LOWER_OMICRON_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCF, 0x8C);
+pub const LOWER_UPSILON_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCF, 0x8D);
+pub const LOWER_OMEGA_WITH_TONOS: GreekChar = GreekChar::TwoByte(0xCF, 0x8E);
 
-pub const LOWER_IOTA_WITH_DIALYTIKA: GreekChar = GreekChar { bytes: [0xCF, 0x8A, 0], len: 2 };
-pub const LOWER_UPSILON_WITH_DIALYTIKA: GreekChar = GreekChar { bytes: [0xCF, 0x8B, 0], len: 2 };
+pub const LOWER_IOTA_WITH_DIALYTIKA: GreekChar = GreekChar::TwoByte(0xCF, 0x8A);
+pub const LOWER_UPSILON_WITH_DIALYTIKA: GreekChar = GreekChar::TwoByte(0xCF, 0x8B);
 
-pub const LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0x90, 0], len: 2 };
-pub const LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS: GreekChar = GreekChar { bytes: [0xCE, 0xB0, 0], len: 2 };
+pub const LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0x90);
+pub const LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS: GreekChar = GreekChar::TwoByte(0xCE, 0xB0);
 
 #[cfg(test)]
 mod tests {
@@ -487,40 +454,60 @@ mod tests {
     #[test]
     fn uppercase_letters_are_uppercase() {
         for char in GREEK_UPPERS {
-            assert!(is_uppercase_greek(&char), "[{}, {}]", &char.bytes()[0], &char.bytes()[1]);
+            match char {
+                GreekChar::TwoByte(first_byte, second_byte) => {
+                    assert!(is_uppercase_greek(&char), "[{}, {}]", first_byte, second_byte)
+                },
+                _ => panic!("Invalid char")
+            }
         }
     }
 
     #[test]
     fn reserved_block_char_is_not_uppercase() {
-        let reserved_char = GreekChar { bytes: [0xCE, 0xA2, 0], len: 2 }; // unicode \03A2
+        let reserved_char = GreekChar::TwoByte(0xCE, 0xA2); // unicode \03A2
         assert!(!is_uppercase_greek(&reserved_char), "failed for reserved char");
     }
 
     #[test]
     fn lowercase_letters_are_not_uppercase() {
         for char in GREEK_LOWERS {
-            assert!(!is_uppercase_greek(&char), "[{}, {}]", &char.bytes()[0], &char.bytes()[1]);
+            match char {
+                GreekChar::TwoByte(first_byte, second_byte) => {
+                    assert!(!is_uppercase_greek(&char), "[{}, {}]", first_byte, second_byte)
+                },
+                _ => panic!("Invalid char")
+            }
         }
     }
 
     #[test]
     fn lowercase_letters_are_lowercase() {
         for char in GREEK_LOWERS {
-            assert!(is_lowercase_greek(&char), "[{}, {}]", &char.bytes()[0], &char.bytes()[1]);
+            match char {
+                GreekChar::TwoByte(first_byte, second_byte) => {
+                    assert!(is_lowercase_greek(&char), "[{}, {}]", first_byte, second_byte)
+                },
+                _ => panic!("Invalid char")
+            }
         }
     }
 
     #[test]
     fn reserved_block_char_is_not_lowercase() {
-        let reserved_char = GreekChar { bytes: [0xCE, 0xA2, 0], len: 2 }; // unicode \03A2
+        let reserved_char = GreekChar::TwoByte(0xCE, 0xA2); // unicode \03A2
         assert!(!is_lowercase_greek(&reserved_char), "failed for reserved char");
     }
 
     #[test]
     fn uppercase_letters_are_not_lowercase() {
         for char in GREEK_UPPERS {
-            assert!(!is_lowercase_greek(&char), "[{}, {}]", &char.bytes()[0], &char.bytes()[1]);
+            match char {
+                GreekChar::TwoByte(first_byte, second_byte) => {
+                    assert!(!is_lowercase_greek(&char), "[{}, {}]", first_byte, second_byte)
+                },
+                _ => panic!("Invalid char")
+            }
         }
     }
 }
