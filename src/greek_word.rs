@@ -14,24 +14,38 @@ impl GreekWord {
     }
 
     pub fn from_bytes(bytes: &Vec<u8>) -> Result<Self, InvalidCharError> {
-        if bytes.len() % 2 != 0 { return Err(InvalidCharError) }
         let mut chars: Vec<GreekChar> = Vec::new();
 
-        let mut byte_stack: [u8; 2] = [0, 0];
-        let mut first_byte = true;
+        let mut byte_stack: [u8; 3] = [0, 0, 0];
+        let mut test_char_len = 0;
 
         for byte in bytes {
-            if first_byte {
-                byte_stack[0] = *byte;
-            }
-            else {
-                byte_stack[1] = *byte;
-                match GreekChar::try_new(byte_stack) {
-                    Ok(greek_char) => chars.push(greek_char),
-                    Err(e) => return Err(e)
-                }
-            }
-            first_byte = !first_byte;
+            match test_char_len {
+                0 => {
+                    byte_stack[0] = *byte;
+                },
+                1 => {
+                    byte_stack[1] = *byte;
+                    if let Ok(test_char) = GreekChar::try_new(&byte_stack[0..2]) {
+                        chars.push(test_char);
+                        test_char_len = 0;
+                        byte_stack = [0, 0, 0];
+                        continue;
+                    }
+                },
+                2 => {
+                    byte_stack[2] = *byte;
+                    match GreekChar::try_new(&byte_stack) {
+                        Ok(greek_char) => chars.push(greek_char),
+                        Err(e) => return Err(e)
+                    }
+                    test_char_len = 0;
+                    byte_stack = [0, 0, 0];
+                    continue;
+                },
+                _ => return Err(InvalidCharError)
+            };
+            test_char_len += 1;
         }
         Ok(GreekWord { vec: chars })
     }
@@ -92,6 +106,13 @@ mod tests {
     fn greek_word_to_upper() {
         let lower_logos = GreekWord::from_str("λογος").expect("Unable to parse λογος");
         let upper_logos = GreekWord::from_str("ΛΟΓΟΣ").expect("Unable to parse ΛΟΓΟΣ");
+        assert_eq!(lower_logos.to_upper().unwrap(), upper_logos);
+    }
+
+    #[test]
+    fn greek_word_with_diacritics_to_upper() {
+        let lower_logos = GreekWord::from_str("λόγος").expect("Unable to parse λόγος");
+        let upper_logos = GreekWord::from_str("ΛΌΓΟΣ").expect("Unable to parse ΛΟΓΟΣ");
         assert_eq!(lower_logos.to_upper().unwrap(), upper_logos);
     }
 
