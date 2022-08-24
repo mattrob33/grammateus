@@ -1,8 +1,11 @@
 [package]
 name = "grammateus"
+authors = ["Matt Robertson <mattrobertson333@gmail.com"]
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
+description = "A Rust crate to facilitate working with Ancient Greek words"
+readme = "README.md"
+repository = "https://github.com/mattrob33/grammateus/"
+license = "MIT"
+keywords = ["ancient", "greek", "ancient-greek", "diacritics"]
+categories = ["text-processing", "encoding"]
