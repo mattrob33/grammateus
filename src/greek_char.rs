@@ -363,7 +363,32 @@ pub fn strip_diacritics(char: &GreekChar) -> &GreekChar {
         &LOWER_UPSILON|&LOWER_UPSILON_WITH_TONOS|&LOWER_UPSILON_WITH_DIALYTIKA|&LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS => &LOWER_UPSILON,
         &LOWER_OMEGA|&LOWER_OMEGA_WITH_TONOS => &LOWER_OMEGA,
 
-        _ => panic!("Invalid char encountered")
+        _ => {
+            match char.bytes[1] {
+                0xBC => {
+                    match char.bytes[2] {
+                        0x80..=0x87 => LOWER_ALPHA,
+                        0x88..=0x8F => UPPER_ALPHA,
+                        0x90..=0x95 => LOWER_EPSILON,
+                        0x98..=0x9D => UPPER_EPSILON,
+                        0xA0..=0xA7 => LOWER_ETA,
+                        0xA8..=0xAF => UPPER_ETA,
+                        0xB0..=0xB7 => LOWER_IOTA,
+                        0xB8..=0xBF => UPPER_IOTA
+                    }
+                },
+                0xBD => {
+                    match char.bytes[2] {
+                        0x80..=0x85 => LOWER_OMICRON,
+                        0x88..=0x8D => UPPER_OMICRON,
+                        0x90..=0x97 => LOWER_UPSILON,
+                        0x99|0x9B|0x9D|0x9F => UPPER_UPSILON,
+                        0xA0..=0xA7 => LOWER_OMEGA,
+                        0xA8..=0xAF => UPPER_OMEGA
+                    }
+                },
+            }
+        }
     }
 }
 
