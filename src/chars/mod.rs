@@ -1,8 +1,12 @@
 #![allow(dead_code)]
 
-use crate::chars::errors::InvalidCharError;
-use crate::chars::literals::*;
+use crate::chars::{
+    errors::InvalidCharError,
+    literals::*,
+    diacritics::strip_diacritics
+};
 
+pub mod diacritics;
 pub mod errors;
 pub mod literals;
 
@@ -306,63 +310,6 @@ pub fn is_uppercase_greek(char: &GreekChar) -> bool {
 
         GreekChar::ThreeByte(_, _, _) => panic!("Not yet implented"), // TODO
     };
-}
-
-pub fn strip_diacritics(char: &GreekChar) -> &GreekChar {
-
-    if is_consonant(char) { return char }
-
-    match char {
-        GreekChar::TwoByte(_, _) => {
-            match char {
-                &UPPER_ALPHA|&UPPER_ALPHA_WITH_TONOS => &UPPER_ALPHA,
-                &UPPER_EPSILON|&UPPER_EPSILON_WITH_TONOS => &UPPER_EPSILON,
-                &UPPER_ETA|&UPPER_ETA_WITH_TONOS => &UPPER_ETA,
-                &UPPER_IOTA|&UPPER_IOTA_WITH_TONOS|&UPPER_IOTA_WITH_DIALYTIKA => &UPPER_IOTA,
-                &UPPER_OMICRON|&UPPER_OMICRON_WITH_TONOS => &UPPER_OMICRON,
-                &UPPER_UPSILON|&UPPER_UPSILON_WITH_TONOS|&UPPER_UPSILON_WITH_DIALYTIKA => &UPPER_UPSILON,
-                &UPPER_OMEGA|&UPPER_OMEGA_WITH_TONOS => &UPPER_OMEGA,
-
-                &LOWER_ALPHA|&LOWER_ALPHA_WITH_TONOS => &LOWER_ALPHA,
-                &LOWER_EPSILON|&LOWER_EPSILON_WITH_TONOS => &LOWER_EPSILON,
-                &LOWER_ETA|&LOWER_ETA_WITH_TONOS => &LOWER_ETA,
-                &LOWER_IOTA|&LOWER_IOTA_WITH_TONOS|&LOWER_IOTA_WITH_DIALYTIKA|&LOWER_IOTA_WITH_DIALYTIKA_AND_TONOS => &LOWER_IOTA,
-                &LOWER_OMICRON|&LOWER_OMICRON_WITH_TONOS => &LOWER_OMICRON,
-                &LOWER_UPSILON|&LOWER_UPSILON_WITH_TONOS|&LOWER_UPSILON_WITH_DIALYTIKA|&LOWER_UPSILON_WITH_DIALYTIKA_AND_TONOS => &LOWER_UPSILON,
-                &LOWER_OMEGA|&LOWER_OMEGA_WITH_TONOS => &LOWER_OMEGA,
-                _ => panic!("Not yet supported - please file an issue")
-            }
-        },
-        GreekChar::ThreeByte(_, second_byte, third_byte) => {
-            match second_byte {
-                0xBC => {
-                    match third_byte {
-                        0x80..=0x87 => &LOWER_ALPHA,
-                        0x88..=0x8F => &UPPER_ALPHA,
-                        0x90..=0x95 => &LOWER_EPSILON,
-                        0x98..=0x9D => &UPPER_EPSILON,
-                        0xA0..=0xA7 => &LOWER_ETA,
-                        0xA8..=0xAF => &UPPER_ETA,
-                        0xB0..=0xB7 => &LOWER_IOTA,
-                        0xB8..=0xBF => &UPPER_IOTA,
-                        _ => panic!("Not yet supported - please file an issue")
-                    }
-                },
-                0xBD => {
-                    match third_byte {
-                        0x80..=0x85 => &LOWER_OMICRON,
-                        0x88..=0x8D => &UPPER_OMICRON,
-                        0x90..=0x97 => &LOWER_UPSILON,
-                        0x99|0x9B|0x9D|0x9F => &UPPER_UPSILON,
-                        0xA0..=0xA7 => &LOWER_OMEGA,
-                        0xA8..=0xAF => &UPPER_OMEGA,
-                        _ => panic!("Not yet supported - please file an issue")
-                    }
-                },
-                _ => panic!("Invalid char")
-            }
-        }
-    }
 }
 
 fn is_consonant(char: &GreekChar) -> bool {
