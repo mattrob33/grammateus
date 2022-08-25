@@ -6,6 +6,7 @@ mod tests;
 use crate::chars::GreekChar;
 use crate::chars::errors::InvalidCharError;
 use crate::chars::literals::{LOWER_SIGMA, LOWER_SIGMA_FINAL};
+use std::string::FromUtf8Error;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GreekWord {
@@ -64,6 +65,26 @@ impl GreekWord {
 
     pub fn from_str(str: &str) -> Result<Self, InvalidCharError> {
         GreekWord::from_bytes(&str.as_bytes().to_vec())
+    }
+
+    pub fn to_string(&self) -> Result<String, FromUtf8Error> {
+        let mut bytes: Vec<u8> = vec![];
+
+        for char in &self.vec {
+            match char {
+                GreekChar::TwoByte(first_byte, second_byte) => {
+                    bytes.push(*first_byte);
+                    bytes.push(*second_byte);
+                },
+                GreekChar::ThreeByte(first_byte, second_byte, third_byte) => {
+                    bytes.push(*first_byte);
+                    bytes.push(*second_byte);
+                    bytes.push(*third_byte);
+                }
+            }
+        }
+
+        String::from_utf8(bytes)
     }
 
     pub fn to_upper(&self) -> GreekWord {
