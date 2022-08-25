@@ -116,4 +116,8 @@ impl GreekWord {
         }
         GreekWord::from_greek_chars(&new_chars)
     }
+
+    pub fn as_greek_chars(&self) -> Vec<GreekChar> {
+        self.vec.clone()
+    }
 }
